@@ -6,7 +6,9 @@ import ships from './assets/SpaceShooterAssetPack_Ships.png';
 
 const CANVAS_WIDTH = 350;
 const CANVAS_HEIGHT = 600;
+
 const PLAYER_SIZE_MULTIPLIER = 6;
+const PLAYER_SIZE = PLAYER_SIZE_MULTIPLIER * 8;
 
 function App() {
     const canvas = useRef<HTMLCanvasElement | null>(null);
@@ -21,6 +23,7 @@ function App() {
         status: 'idle',
         x: 150,
         y: 300,
+        keysPressed: new Set<string>([])
     });
 
     function updatePlayerStatus(status: 'idle' | 'moving-left' | 'moving-right') {
@@ -44,17 +47,69 @@ function App() {
         }
     }
 
-    function handleKeyUp() {
-        updatePlayerStatus('idle');
-        updateSpeedX(0);
-        updateSpeedY(0);
+    function updatePlayerPosition() {
+        const {x, speedX, y, speedY, status} = player.current;
+
+        if (status === 'moving-left' && x - speedX < -PLAYER_SIZE) {
+            return void (player.current = {
+                ...player.current,
+                y: y + speedY,
+                x: CANVAS_WIDTH + PLAYER_SIZE
+            })
+        }
+
+        if (status === 'moving-right' && x + speedX > CANVAS_WIDTH + PLAYER_SIZE) {
+            return void (player.current = {
+                ...player.current,
+                y: y + speedY,
+                x: -PLAYER_SIZE
+            })
+        }
+
+        player.current = {
+            ...player.current,
+            x: x + speedX,
+            y: y + speedY
+        }
+    }
+
+    function handleKeyUp(e: KeyboardEvent) {
+        updateKeysPressed(Array.from(player.current.keysPressed).filter(key => key !== e.code));
+
+        const isMovingVertically = ['ArrowUp', 'ArrowDown'].find(key => player.current.keysPressed.has(key));
+        const isMovingHorizontally = ['ArrowLeft', 'ArrowRight'].find(key => player.current.keysPressed.has(key));
+
+        if (!isMovingVertically) {
+            updateSpeedY(0);
+        }
+
+        if (!isMovingHorizontally) {
+            updateSpeedX(0);
+        }
+
+        if (!isMovingHorizontally && !isMovingVertically) {
+            updatePlayerStatus('idle');
+        }
+    }
+
+    function updateKeysPressed(keysPressed: string[]) {
+        player.current = {
+            ...player.current,
+            keysPressed: new Set(keysPressed)
+        }
     }
 
     function handleKeyDown(e: KeyboardEvent) {
         const {
             velocityX,
-            velocityY
+            velocityY,
+            keysPressed
         } = player.current;
+
+        updateKeysPressed([
+            ...Array.from(keysPressed),
+            e.code
+        ]);
 
         switch (e.code) {
             case "Space":
@@ -79,15 +134,6 @@ function App() {
                 break;
         }
     }
-
-    function updatePlayerPosition() {
-        player.current = {
-            ...player.current,
-            x: player.current.x + player.current.speedX,
-            y: player.current.y + player.current.speedY
-        }
-    }
-
 
     const game = () => {
         if (!canvas.current) return;
