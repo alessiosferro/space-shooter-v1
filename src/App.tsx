@@ -1,10 +1,11 @@
 import './App.css'
-import {Flex, VisuallyHidden} from "@chakra-ui/react";
+import {Box, Button, Flex, Grid, GridItem, VisuallyHidden} from "@chakra-ui/react";
 import {useEffect, useRef} from "react";
 
 import ships from './assets/ships.png';
 import projectiles from './assets/projectiles.png';
 import backgrounds from './assets/backgrounds.png';
+import {ArrowBackIcon, ArrowDownIcon, ArrowForwardIcon, ArrowUpIcon} from "@chakra-ui/icons";
 
 const CANVAS_WIDTH = 350;
 const CANVAS_HEIGHT = 600;
@@ -28,7 +29,7 @@ function App() {
         hp: 5,
         status: 'idle',
         x: 150,
-        y: 300,
+        y: 400,
         keysPressed: new Set<string>([])
     });
 
@@ -38,49 +39,57 @@ function App() {
 
     const bullets = useRef<Bullet[]>([]);
 
+    function fireBullet() {
+        const {x, y} = player.current;
+
+        bullets.current = [
+            ...bullets.current,
+            {
+                x: x + 20,
+                y,
+                velocityX: 0,
+                velocityY: -5,
+                sx: 4,
+                sy: 4,
+                sw: 1,
+                sh: 1,
+            }
+        ];
+    }
+
+    function updateSpeedX(speedX: number) {
+        player.current = {
+            ...player.current,
+            speedX
+        }
+    }
+
+    function updateSpeedY(speedY: number) {
+        player.current = {
+            ...player.current,
+            speedY
+        }
+    }
+
+    function updatePlayerStatus(status: 'idle' | 'moving-left' | 'moving-right') {
+        player.current = {
+            ...player.current,
+            status
+        }
+    }
+
+
     const main = () => {
         if (!canvas.current) return;
 
         const canvasElement = canvas.current;
         const ctx = canvasElement.getContext('2d') as CanvasRenderingContext2D;
 
-
-        canvasElement.addEventListener('keydown', handleKeyDown);
-        canvasElement.addEventListener('keyup', handleKeyUp);
-        canvasElement.addEventListener('touchstart', handleFireBullet);
-        canvasElement.addEventListener('touchstart', handleTouchMove);
-        canvasElement.addEventListener('touchend', handleTouchEnd);
+        addEventListener('keydown', handleKeyDown);
+        addEventListener('keyup', handleKeyUp);
 
         ctx.imageSmoothingEnabled = false;
 
-        function updatePlayerStatus(status: 'idle' | 'moving-left' | 'moving-right') {
-            player.current = {
-                ...player.current,
-                status
-            }
-        }
-
-        function updateSpeedX(speedX: number) {
-            player.current = {
-                ...player.current,
-                speedX
-            }
-        }
-
-        function updateSpeedY(speedY: number) {
-            player.current = {
-                ...player.current,
-                speedY
-            }
-        }
-
-        function handleFireBullet(e: TouchEvent) {
-            e.stopPropagation();
-            e.preventDefault();
-
-            if (e.targetTouches.length < 2) return;
-            fireBullet();
-        }
 
         function updatePlayerPosition() {
             const {x, speedX, y, speedY} = player.current;
@@ -88,7 +97,7 @@ function App() {
             const nextY = y + speedY;
             const nextX = x + speedX;
 
-            const isYOverflow = nextY > CANVAS_HEIGHT - PLAYER_SIZE || nextY < PLAYER_SIZE;
+            const isYOverflow = nextY > CANVAS_HEIGHT - PLAYER_SIZE - 150 || nextY < PLAYER_SIZE;
             const isXOverflow = nextX > CANVAS_WIDTH - PLAYER_SIZE || nextX < 0;
 
             player.current = {
@@ -117,42 +126,6 @@ function App() {
             }
         }
 
-        function handleTouchMove(e: TouchEvent) {
-            e.stopPropagation();
-            e.preventDefault();
-
-            const [touch] = e.targetTouches;
-            const {velocityX, velocityY} = player.current;
-
-            const {clientX, clientY} = touch;
-
-            const offsetTop = (e.target as HTMLCanvasElement).offsetTop;
-
-            console.log(offsetTop)
-
-            if (clientX < 100) {
-                updateSpeedX(-velocityX);
-            }
-
-            if (clientX > CANVAS_WIDTH - 100) {
-                updateSpeedX(velocityX);
-            }
-
-            if (clientY - offsetTop < 100) {
-                updateSpeedY(-velocityY);
-            }
-
-            if (clientY - offsetTop > CANVAS_HEIGHT - 100) {
-                updateSpeedY(velocityY);
-            }
-        }
-
-        function handleTouchEnd() {
-            updateSpeedX(0);
-            updateSpeedY(0);
-            updatePlayerStatus('idle');
-        }
-
         function updateKeysPressed(keysPressed: string[]) {
             player.current = {
                 ...player.current,
@@ -160,23 +133,6 @@ function App() {
             }
         }
 
-        function fireBullet() {
-            const {x, y} = player.current;
-
-            bullets.current = [
-                ...bullets.current,
-                {
-                    x: x + 20,
-                    y,
-                    velocityX: 0,
-                    velocityY: -5,
-                    sx: 4,
-                    sy: 4,
-                    sw: 1,
-                    sh: 1,
-                }
-            ];
-        }
 
         function updateBulletsPositions() {
             bullets.current = bullets.current
@@ -200,6 +156,8 @@ function App() {
                 velocityY,
                 keysPressed
             } = player.current;
+
+            console.log(e.code)
 
             if (fireBulletTimeoutId.current) {
                 clearTimeout(fireBulletTimeoutId.current);
@@ -302,10 +260,8 @@ function App() {
         loop();
 
         return () => {
-            canvasElement.removeEventListener('keydown', handleKeyDown);
-            canvasElement.removeEventListener('keyup', handleKeyUp);
-            canvasElement.removeEventListener('touchstart', handleTouchMove);
-            canvasElement.removeEventListener('touchstart', handleFireBullet);
+            removeEventListener('keydown', handleKeyDown);
+            removeEventListener('keyup', handleKeyUp);
             cancelAnimationFrame(animationFrameId.current!);
         }
     }
@@ -319,17 +275,97 @@ function App() {
     }, []);
 
     return (
-        <Flex userSelect="none" bgColor="black" minH="100dvh" width="100%" align="center" justify="center">
+        <Flex style={{touchAction: 'none'}} userSelect="none" bgColor="black" minH="100dvh" width="100%" align="center"
+              justify="center">
             <VisuallyHidden>
                 <header>
                     <h1>Space Shooter</h1>
                 </header>
             </VisuallyHidden>
 
-            <canvas style={{position: 'relative', imageRendering: 'pixelated'}}
+            <Box position="relative">
+                <canvas
+                    style={{position: 'relative', userSelect: 'none', imageRendering: 'pixelated', touchAction: 'none'}}
                     ref={canvas}
                     height={CANVAS_HEIGHT}
                     width={CANVAS_WIDTH}/>
+                <Flex width="100%"
+                      gap="4rem"
+                      position="absolute"
+                      bottom="1rem"
+                      align="flex-end"
+                      justify="space-between">
+                    <Grid gap=".2rem" templateRows="repeat(2, 1fr)" templateColumns="repeat(3, 1fr)">
+                        <GridItem gridColumn="2/3" gridRow="1/2">
+                            <Button onMouseUp={() => updateSpeedY(0)}
+                                    onMouseDown={() => updateSpeedY(-player.current.velocityY)}
+                                    onTouchStart={() => updateSpeedY(-player.current.velocityY)}
+                                    onTouchEnd={() => updateSpeedY(0)}
+                                    variant="button">
+                                <ArrowUpIcon/>
+                            </Button>
+                        </GridItem>
+                        <GridItem gridRow="2/3">
+                            <Button variant="button"
+                                    onMouseUp={() => {
+                                        updateSpeedX(0);
+                                        updatePlayerStatus('idle');
+                                    }}
+                                    onMouseDown={() => {
+                                        updatePlayerStatus('moving-left');
+                                        updateSpeedX(-player.current.velocityX);
+                                    }}
+                                    onTouchEnd={() => {
+                                        updateSpeedX(0);
+                                        updatePlayerStatus('idle');
+                                    }}
+                                    onTouchStart={() => {
+                                        updatePlayerStatus('moving-left');
+                                        updateSpeedX(-player.current.velocityX);
+                                    }}
+                            >
+                                <ArrowBackIcon/>
+                            </Button>
+                        </GridItem>
+                        <GridItem gridRow="2/3">
+                            <Button variant="button"
+                                    onMouseUp={() => updateSpeedY(0)}
+                                    onMouseDown={() => updateSpeedY(player.current.velocityY)}
+                                    onTouchEnd={() => updateSpeedY(0)}
+                                    onTouchStart={() => updateSpeedY(player.current.velocityY)}
+                            >
+                                <ArrowDownIcon/>
+                            </Button>
+                        </GridItem>
+                        <GridItem gridRow="2/3">
+                            <Button variant="button"
+                                    onMouseUp={() => {
+                                        updateSpeedX(0)
+                                        updatePlayerStatus('idle');
+                                    }}
+                                    onMouseDown={() => {
+                                        updateSpeedX(player.current.velocityX);
+                                        updatePlayerStatus('moving-right');
+                                    }}
+                                    onTouchEnd={() => {
+                                        updateSpeedX(0)
+                                        updatePlayerStatus('idle');
+                                    }}
+                                    onTouchStart={() => {
+                                        updateSpeedX(player.current.velocityX);
+                                        updatePlayerStatus('moving-right');
+                                    }}
+                            >
+                                <ArrowForwardIcon/>
+                            </Button>
+                        </GridItem>
+                    </Grid>
+
+                    <Button onClick={fireBullet} variant="button">
+                        💥
+                    </Button>
+                </Flex>
+            </Box>
 
             <VisuallyHidden>
                 <img ref={shipsImageRef} src={ships} alt=""/>
