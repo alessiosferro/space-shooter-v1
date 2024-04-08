@@ -21,8 +21,8 @@ function App() {
     const fireBulletTimeoutId = useRef<number | null>(null);
 
     const player = useRef({
-        velocityX: 2,
-        velocityY: 1.5,
+        velocityX: 4,
+        velocityY: 3,
         speedX: 0,
         speedY: 0,
         hp: 5,
@@ -41,10 +41,15 @@ function App() {
     const main = () => {
         if (!canvas.current) return;
 
-        const ctx = canvas.current.getContext('2d') as CanvasRenderingContext2D;
+        const canvasElement = canvas.current;
+        const ctx = canvasElement.getContext('2d') as CanvasRenderingContext2D;
 
-        addEventListener('keydown', handleKeyDown);
-        addEventListener('keyup', handleKeyUp);
+
+        canvasElement.addEventListener('keydown', handleKeyDown);
+        canvasElement.addEventListener('keyup', handleKeyUp);
+        canvasElement.addEventListener('touchstart', handleFireBullet);
+        canvasElement.addEventListener('touchstart', handleTouchMove);
+        canvasElement.addEventListener('touchend', handleTouchEnd);
 
         ctx.imageSmoothingEnabled = false;
 
@@ -67,6 +72,14 @@ function App() {
                 ...player.current,
                 speedY
             }
+        }
+
+        function handleFireBullet(e: TouchEvent) {
+            e.stopPropagation();
+            e.preventDefault();
+
+            if (e.targetTouches.length < 2) return;
+            fireBullet();
         }
 
         function updatePlayerPosition() {
@@ -102,6 +115,42 @@ function App() {
             if (!isMovingHorizontally && !isMovingVertically) {
                 updatePlayerStatus('idle');
             }
+        }
+
+        function handleTouchMove(e: TouchEvent) {
+            e.stopPropagation();
+            e.preventDefault();
+
+            const [touch] = e.targetTouches;
+            const {velocityX, velocityY} = player.current;
+
+            const {clientX, clientY} = touch;
+
+            const offsetTop = (e.target as HTMLCanvasElement).offsetTop;
+
+            console.log(offsetTop)
+
+            if (clientX < 100) {
+                updateSpeedX(-velocityX);
+            }
+
+            if (clientX > CANVAS_WIDTH - 100) {
+                updateSpeedX(velocityX);
+            }
+
+            if (clientY - offsetTop < 100) {
+                updateSpeedY(-velocityY);
+            }
+
+            if (clientY - offsetTop > CANVAS_HEIGHT - 100) {
+                updateSpeedY(velocityY);
+            }
+        }
+
+        function handleTouchEnd() {
+            updateSpeedX(0);
+            updateSpeedY(0);
+            updatePlayerStatus('idle');
         }
 
         function updateKeysPressed(keysPressed: string[]) {
@@ -253,8 +302,10 @@ function App() {
         loop();
 
         return () => {
-            removeEventListener('keydown', handleKeyDown);
-            removeEventListener('keyup', handleKeyUp);
+            canvasElement.removeEventListener('keydown', handleKeyDown);
+            canvasElement.removeEventListener('keyup', handleKeyUp);
+            canvasElement.removeEventListener('touchstart', handleTouchMove);
+            canvasElement.removeEventListener('touchstart', handleFireBullet);
             cancelAnimationFrame(animationFrameId.current!);
         }
     }
@@ -268,14 +319,14 @@ function App() {
     }, []);
 
     return (
-        <Flex bgColor="black" minH="100dvh" width="100%" align="center" justify="center">
+        <Flex userSelect="none" bgColor="black" minH="100dvh" width="100%" align="center" justify="center">
             <VisuallyHidden>
                 <header>
                     <h1>Space Shooter</h1>
                 </header>
             </VisuallyHidden>
 
-            <canvas style={{imageRendering: 'pixelated'}}
+            <canvas style={{position: 'relative', imageRendering: 'pixelated'}}
                     ref={canvas}
                     height={CANVAS_HEIGHT}
                     width={CANVAS_WIDTH}/>
