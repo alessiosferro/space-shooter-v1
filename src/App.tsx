@@ -5,6 +5,8 @@ import {useEffect, useRef} from "react";
 import ships from './assets/ships.png';
 import projectiles from './assets/projectiles.png';
 import backgrounds from './assets/backgrounds.png';
+import meteor from './assets/meteor.png';
+
 import {ArrowBackIcon, ArrowDownIcon, ArrowForwardIcon, ArrowUpIcon} from "@chakra-ui/icons";
 
 const CANVAS_WIDTH = 350;
@@ -15,10 +17,13 @@ const PLAYER_SIZE = PLAYER_SIZE_MULTIPLIER * 8;
 
 function App() {
     const canvas = useRef<HTMLCanvasElement | null>(null);
+
+    const meteorImageRef = useRef<HTMLImageElement | null>(null);
     const shipsImageRef = useRef<HTMLImageElement | null>(null);
     const projectilesImageRef = useRef<HTMLImageElement | null>(null);
-    const animationFrameId = useRef<number | null>(null);
     const backgroundsImageRef = useRef<HTMLImageElement | null>(null)
+
+    const animationFrameId = useRef<number | null>(null);
     const fireBulletTimeoutId = useRef<number | null>(null);
 
     const player = useRef({
@@ -35,9 +40,12 @@ function App() {
 
     const game = useRef({
         backgroundY: 0,
+        backgroundVelocityY: .3
     })
 
     const bullets = useRef<Bullet[]>([]);
+
+    const meteors = useRef<Meteor[]>([]);
 
     function fireBullet() {
         const {x, y} = player.current;
@@ -144,6 +152,42 @@ function App() {
                 }));
         }
 
+        function spawnMeteor() {
+            const velocityY = Math.random() + .2;
+            const velocityX = (Math.random() / 5) * (Math.round(Math.random()) === 0 ? 1 : -1);
+            const size = Math.round((Math.random() * 40) + 20);
+            const x = Math.round(Math.random() * (CANVAS_WIDTH - size))
+
+            meteors.current = [
+                ...meteors.current,
+                {
+                    x,
+                    y: -size,
+                    velocityX,
+                    velocityY,
+                    size
+                }
+            ]
+        }
+
+        function drawMeteors() {
+            for (const meteor of meteors.current) {
+                ctx.drawImage(meteorImageRef.current!, meteor.x, meteor.y, meteor.size, meteor.size);
+            }
+        }
+
+        function updateMeteorsPositions() {
+            meteors.current = meteors.current.filter(meteor =>
+                meteor.x > -meteor.size &&
+                meteor.x < CANVAS_WIDTH + meteor.size &&
+                meteor.y < CANVAS_HEIGHT
+            ).map(meteor => ({
+                ...meteor,
+                x: meteor.x + meteor.velocityX,
+                y: meteor.y + meteor.velocityY
+            }))
+        }
+
         function drawBullets() {
             for (const bullet of bullets.current) {
                 ctx.drawImage(projectilesImageRef.current!, bullet.sx, bullet.sy, bullet.sw, bullet.sh, bullet.x, bullet.y, 8, 8);
@@ -156,8 +200,6 @@ function App() {
                 velocityY,
                 keysPressed
             } = player.current;
-
-            console.log(e.code)
 
             if (fireBulletTimeoutId.current) {
                 clearTimeout(fireBulletTimeoutId.current);
@@ -198,9 +240,11 @@ function App() {
         }
 
         function updateBackgroundPosition() {
+            const {backgroundY, backgroundVelocityY} = game.current;
+
             game.current = {
                 ...game.current,
-                backgroundY: (game.current.backgroundY % CANVAS_HEIGHT) + .2
+                backgroundY: (backgroundY % CANVAS_HEIGHT) + backgroundVelocityY
             }
         }
 
@@ -246,13 +290,19 @@ function App() {
         function loop() {
             ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
+            if (Math.floor(Math.random() * 100) === 50) {
+                spawnMeteor();
+            }
+
             updateBackgroundPosition();
             updatePlayerPosition();
             updateBulletsPositions();
+            updateMeteorsPositions();
 
             drawBackground();
             drawPlayer();
             drawBullets();
+            drawMeteors();
 
             animationFrameId.current = requestAnimationFrame(loop);
         }
@@ -374,6 +424,8 @@ function App() {
 
                 <img ref={backgroundsImageRef} src={backgrounds} alt=""/>
 
+                <img ref={meteorImageRef} src={meteor} alt=""/>
+
                 <footer>
                     <p>Sviluppato da Alessio Sferro</p>
                 </footer>
@@ -394,6 +446,16 @@ type Bullet = {
 
     velocityX: number;
     velocityY: number;
+}
+
+type Meteor = {
+    x: number;
+    y: number;
+
+    velocityX: number;
+    velocityY: number;
+
+    size: number;
 }
 
 export default App
