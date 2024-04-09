@@ -1,58 +1,39 @@
-import './App.css'
-import {Box, Button, Flex, Grid, GridItem, VisuallyHidden} from "@chakra-ui/react";
-import {useEffect, useRef} from "react";
+import './App.css';
 
-import ships from './assets/ships.png';
+import {Box, Button, Container, Flex, Grid, GridItem, Text, VisuallyHidden} from "@chakra-ui/react";
+import {useEffect, useRef, useState} from "react";
+import ship from './assets/ship.png';
+import shipMovingLeft from './assets/ship-moving-left.png';
+import shipMovingRight from './assets/ship-moving-right.png';
 import projectiles from './assets/projectiles.png';
 import backgrounds from './assets/backgrounds.png';
 import meteor from './assets/meteor.png';
 import explosion1 from './assets/explosion1.png';
 import explosion2 from './assets/explosion2.png';
 import explosion3 from './assets/explosion3.png';
-
 import {ArrowBackIcon, ArrowDownIcon, ArrowForwardIcon, ArrowUpIcon} from "@chakra-ui/icons";
-
-const CANVAS_WIDTH = 350;
-const CANVAS_HEIGHT = 600;
-
-const PLAYER_SIZE_MULTIPLIER = 6;
-const PLAYER_SIZE = PLAYER_SIZE_MULTIPLIER * 8;
 
 function App() {
     const canvas = useRef<HTMLCanvasElement | null>(null);
-
     const meteorImageRef = useRef<HTMLImageElement | null>(null);
-    const shipsImageRef = useRef<HTMLImageElement | null>(null);
     const projectilesImageRef = useRef<HTMLImageElement | null>(null);
     const backgroundsImageRef = useRef<HTMLImageElement | null>(null)
-    const explosion1Ref = useRef<HTMLImageElement | null>(null)
-    const explosion2Ref = useRef<HTMLImageElement | null>(null)
-    const explosion3Ref = useRef<HTMLImageElement | null>(null)
-
+    const explosionFrame1Ref = useRef<HTMLImageElement | null>(null)
+    const explosionFrame2Ref = useRef<HTMLImageElement | null>(null)
+    const explosionFrame3Ref = useRef<HTMLImageElement | null>(null)
+    const shipRef = useRef<HTMLImageElement | null>(null)
+    const shipMovingLeftRef = useRef<HTMLImageElement | null>(null)
+    const shipMovingRightRef = useRef<HTMLImageElement | null>(null)
+    const respawnInvulnerabilityTimer = useRef<number>(0);
     const animationFrameId = useRef<number | null>(null);
     const fireBulletTimeoutId = useRef<number | null>(null);
-
-    const player = useRef({
-        velocityX: 4,
-        velocityY: 3,
-        speedX: 0,
-        speedY: 0,
-        hp: 5,
-        status: 'idle',
-        x: 150,
-        y: 400,
-        keysPressed: new Set<string>([])
-    });
-
-    const game = useRef({
-        backgroundY: 0,
-        backgroundVelocityY: .3
-    })
-
+    const meteorIntervalId = useRef<number | null>(null);
+    const [isGameOver, setIsGameOver] = useState(false);
+    const [points, setPoints] = useState(0);
+    const player = useRef(INITIAL_PLAYER_CONFIG);
+    const game = useRef(INITIAL_GAME_CONFIG);
     const bullets = useRef<Bullet[]>([]);
-
     const meteors = useRef<Meteor[]>([]);
-
     const explosions = useRef<Explosion[]>([]);
 
     function fireBullet() {
@@ -64,7 +45,7 @@ function App() {
                 x: x + 20,
                 y,
                 velocityX: 0,
-                velocityY: -5,
+                velocityY: -6,
                 sx: 4,
                 sy: 4,
                 sw: 1,
@@ -87,41 +68,66 @@ function App() {
         }
     }
 
-    function updatePlayerStatus(status: 'idle' | 'moving-left' | 'moving-right') {
+    function updatePlayerStatus(status: 'idle' | 'dead' | 'moving-left' | 'moving-right') {
         player.current = {
             ...player.current,
             status
         }
     }
 
+    function handleVisibilityChange() {
+        if (document.visibilityState === 'visible') {
+            clearInterval(meteorIntervalId.current!);
+            spawnMeteors();
+        }
+    }
+
+    function spawnMeteors() {
+        meteorIntervalId.current = setInterval(() => {
+            updateMeteors();
+        }, 800);
+    }
+
+    function handleResetGame() {
+        setPoints(0);
+        setIsGameOver(!isGameOver);
+
+        player.current = {...INITIAL_PLAYER_CONFIG};
+        game.current = {...INITIAL_GAME_CONFIG};
+        meteors.current = [];
+        bullets.current = [];
+        explosions.current = [];
+        respawnInvulnerabilityTimer.current = 0;
+    }
+
+    function updateMeteors() {
+        const velocityY = Math.random() + .2;
+        const velocityX = (Math.random() / 5) * (Math.round(Math.random()) === 0 ? 1 : -1);
+        const size = Math.round((Math.random() * 40) + 20);
+        const x = Math.round(Math.random() * (CANVAS_WIDTH - size))
+
+        meteors.current = [
+            ...meteors.current,
+            {
+                x,
+                y: -size,
+                velocityX,
+                velocityY,
+                size
+            }
+        ]
+    }
 
     const main = () => {
         if (!canvas.current) return;
 
         const canvasElement = canvas.current;
         const ctx = canvasElement.getContext('2d') as CanvasRenderingContext2D;
+        ctx.imageSmoothingEnabled = false;
 
         addEventListener('keydown', handleKeyDown);
         addEventListener('keyup', handleKeyUp);
-
-        ctx.imageSmoothingEnabled = false;
-
-
-        function updatePlayerPosition() {
-            const {x, speedX, y, speedY} = player.current;
-
-            const nextY = y + speedY;
-            const nextX = x + speedX;
-
-            const isYOverflow = nextY > CANVAS_HEIGHT - PLAYER_SIZE - 150 || nextY < PLAYER_SIZE;
-            const isXOverflow = nextX > CANVAS_WIDTH - PLAYER_SIZE || nextX < 0;
-
-            player.current = {
-                ...player.current,
-                ...(!isYOverflow && {y: nextY}),
-                ...(!isXOverflow && {x: nextX})
-            }
-        }
+        addEventListener('visibilitychange', handleVisibilityChange)
 
         function handleKeyUp(e: KeyboardEvent) {
             updateKeysPressed(Array.from(player.current.keysPressed).filter(key => key !== e.code));
@@ -137,7 +143,7 @@ function App() {
                 updateSpeedX(0);
             }
 
-            if (!isMovingHorizontally && !isMovingVertically) {
+            if (!isMovingHorizontally && !isMovingVertically && player.current.status !== 'dead') {
                 updatePlayerStatus('idle');
             }
         }
@@ -149,7 +155,77 @@ function App() {
             }
         }
 
-        function detectMeteorCollision() {
+        function detectMeteorPlayerCollision() {
+            if (respawnInvulnerabilityTimer.current > 0) return;
+
+            const {x, y} = player.current;
+
+            for (const meteor of meteors.current) {
+                if (
+                    (meteor.x + meteor.size * .6 >= x && meteor.x <= x + PLAYER_SIZE) &&
+                    (meteor.y + meteor.size * .6 >= y && meteor.y <= y + PLAYER_SIZE)
+                ) {
+                    return meteor;
+                }
+            }
+
+            return null;
+        }
+
+        function updatePlayerPosition() {
+            if (player.current.status === 'dead') return;
+
+            const meteor = detectMeteorPlayerCollision();
+
+            const {x, speedX, y, hp, speedY} = player.current;
+
+            if (meteor) {
+                meteors.current = meteors.current.filter(m => m !== meteor);
+
+                explosions.current = [
+                    ...explosions.current,
+                    {
+                        x,
+                        y,
+                        size: PLAYER_SIZE,
+                        animationTime: 0
+                    }
+                ];
+
+                updatePlayerStatus('dead');
+
+                if (hp === 0) {
+                    setIsGameOver(true);
+                    game.current.isGameOver = true;
+                    return;
+                }
+
+                setTimeout(() => {
+                    respawnInvulnerabilityTimer.current = 200;
+
+                    player.current = {
+                        ...INITIAL_PLAYER_CONFIG,
+                        hp: hp - 1
+                    }
+                }, 1000);
+            }
+
+            const nextY = y + speedY;
+            const nextX = x + speedX;
+
+            const isYOverflow = nextY > CANVAS_HEIGHT - PLAYER_SIZE - 150 || nextY < PLAYER_SIZE;
+            const isXOverflow = nextX > CANVAS_WIDTH - PLAYER_SIZE || nextX < 0;
+
+            player.current = {
+                ...player.current,
+                ...(!isYOverflow && {y: nextY}),
+                ...(!isXOverflow && {x: nextX})
+            }
+
+
+        }
+
+        function detectMeteorBulletCollision() {
             for (const bullet of bullets.current) {
                 for (const meteor of meteors.current) {
                     if (
@@ -165,11 +241,13 @@ function App() {
         }
 
         function updateBulletsPositions() {
-            const meteorExplosion = detectMeteorCollision();
+            const meteorExplosion = detectMeteorBulletCollision();
 
             if (meteorExplosion) {
                 const {bullet, meteor} = meteorExplosion;
                 const {x, y, size} = meteor;
+
+                setPoints((points) => points + Math.round(size));
 
                 bullets.current = bullets.current.filter(b => b !== bullet);
                 meteors.current = meteors.current.filter(m => m !== meteor);
@@ -192,24 +270,6 @@ function App() {
                     x: bullet.x + bullet.velocityX,
                     y: bullet.y + bullet.velocityY
                 }));
-        }
-
-        function spawnMeteor() {
-            const velocityY = Math.random() + .2;
-            const velocityX = (Math.random() / 5) * (Math.round(Math.random()) === 0 ? 1 : -1);
-            const size = Math.round((Math.random() * 40) + 20);
-            const x = Math.round(Math.random() * (CANVAS_WIDTH - size))
-
-            meteors.current = [
-                ...meteors.current,
-                {
-                    x,
-                    y: -size,
-                    velocityX,
-                    velocityY,
-                    size
-                }
-            ]
         }
 
         function drawMeteors() {
@@ -243,35 +303,36 @@ function App() {
             });
         }
 
-        function getExplosionImage(time: number) {
-            if (time < 10) {
-                return explosion1Ref.current!
+        function getExplosionFrame(time: number) {
+            if (time < ANIMATION_FRAME_TIME) {
+                return explosionFrame1Ref.current!
             }
 
-            if (time < 20) {
-                return explosion2Ref.current!
+            if (time < ANIMATION_FRAME_TIME * 2) {
+                return explosionFrame2Ref.current!
             }
 
-            return explosion3Ref.current!
+            return explosionFrame3Ref.current!
         }
 
         function drawExplosions() {
-
             for (const explosion of explosions.current) {
                 const {x, y, animationTime, size} = explosion;
 
-                if (animationTime >= 30) {
+                if (animationTime >= ANIMATION_FRAME_TIME * 3) {
                     explosions.current = explosions.current.filter(e => e !== explosion);
                     return;
                 }
 
-                const imageElement = getExplosionImage(animationTime);
+                const imageElement = getExplosionFrame(animationTime);
                 ctx.drawImage(imageElement, x, y, size, size);
                 updateExplosionAnimationTime(explosion);
             }
         }
 
         function handleKeyDown(e: KeyboardEvent) {
+            if (player.current.status === 'dead') return;
+
             const {
                 velocityX,
                 velocityY,
@@ -341,57 +402,68 @@ function App() {
 
             switch (status) {
                 case 'idle': {
-                    const sizeW = 8;
-                    const sizeH = 8;
-                    ctx.drawImage(shipsImageRef.current!, 8, 0, 8, 8, x, y, sizeW * PLAYER_SIZE_MULTIPLIER, sizeH * PLAYER_SIZE_MULTIPLIER)
+                    ctx.drawImage(shipRef.current!, x, y, PLAYER_SIZE, PLAYER_SIZE);
                     break;
                 }
 
                 case 'moving-left': {
-                    const sizeW = 6;
-                    const sizeH = 8;
-                    ctx.drawImage(shipsImageRef.current!, 0, 0, 6, 8, x, y, sizeW * PLAYER_SIZE_MULTIPLIER, sizeH * PLAYER_SIZE_MULTIPLIER)
+                    ctx.drawImage(shipMovingLeftRef.current!, x, y, PLAYER_SIZE, PLAYER_SIZE);
                     break;
                 }
 
                 case 'moving-right': {
-                    const sizeW = 6;
-                    const sizeH = 8;
-                    ctx.drawImage(shipsImageRef.current!, 18, 0, 6, 8, x, y, sizeW * PLAYER_SIZE_MULTIPLIER, sizeH * PLAYER_SIZE_MULTIPLIER)
+                    ctx.drawImage(shipMovingRightRef.current!, x, y, PLAYER_SIZE, PLAYER_SIZE);
                     break;
                 }
             }
 
         }
 
+        function drawHp() {
+            const {hp} = player.current;
+
+            for (let i = 0; i < hp; i++) {
+                ctx.drawImage(shipRef.current!, i > 0 ? i * PLAYER_HP_SIZE + (i * 5) : 0, 13, PLAYER_HP_SIZE, PLAYER_HP_SIZE);
+            }
+        }
+
         function loop() {
-            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            if (!game.current.isGameOver) {
+                ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-            updateBackgroundPosition();
-            updatePlayerPosition();
-            updateBulletsPositions();
-            updateMeteorsPositions();
+                if (respawnInvulnerabilityTimer.current > 0) {
+                    respawnInvulnerabilityTimer.current--;
+                }
 
-            drawBackground();
-            drawPlayer();
-            drawBullets();
-            drawMeteors();
-            drawExplosions();
+                updateBackgroundPosition();
+
+                if (player.current.status !== 'dead') {
+                    updatePlayerPosition();
+                    updateBulletsPositions();
+                }
+
+                updateMeteorsPositions();
+
+                drawBackground();
+                drawBullets();
+                drawMeteors();
+                drawExplosions();
+                drawPlayer();
+                drawHp();
+            }
 
             animationFrameId.current = requestAnimationFrame(loop);
         }
 
-        loop();
+        spawnMeteors();
 
-        const intervalId = setInterval(() => {
-            spawnMeteor();
-        }, 800);
+        loop();
 
         return () => {
             removeEventListener('keydown', handleKeyDown);
             removeEventListener('keyup', handleKeyUp);
             cancelAnimationFrame(animationFrameId.current!);
-            clearInterval(intervalId);
+            clearInterval(meteorIntervalId.current!);
         }
     }
 
@@ -404,7 +476,15 @@ function App() {
     }, []);
 
     return (
-        <Flex style={{touchAction: 'none'}} userSelect="none" bgColor="black" minH="100dvh" width="100%" align="center"
+        <Flex style={{touchAction: 'none'}}
+              userSelect="none"
+              bgColor="black"
+              minH="100dvh"
+              width="100%"
+              direction="column"
+              gap="8rem"
+              textAlign="center"
+              align="center"
               justify="center">
             <VisuallyHidden>
                 <header>
@@ -412,12 +492,51 @@ function App() {
                 </header>
             </VisuallyHidden>
 
-            <Box position="relative">
+            {isGameOver && (
+                <Container alignItems="center" display="flex" flexDirection="column" gap="3rem">
+                    <Flex direction="column" gap="2rem">
+                        <Text textTransform="uppercase"
+                              color="red"
+                              letterSpacing=".3rem"
+                              lineHeight="8rem"
+                              fontSize="11rem"
+                        >Sei morto</Text>
+
+
+                        <Text display="flex"
+                              gap="1rem"
+                              flexDirection="column"
+                              color="white"
+                              letterSpacing=".2rem"
+                              fontSize="2rem">
+                            <span>Hai raccolto <Box as="strong" color="dodgerblue">{points}</Box> punti.</span>
+                            <span>Non sei riuscito a sopravvivere allo
+                                spazio interstellare.</span>
+                            <span>
+                            Purtroppo, non
+                            tutti sono
+                            adatti a comandare una navicella spaziale.</span>
+                        </Text>
+                    </Flex>
+
+                    <Button letterSpacing=".2rem"
+                            fontSize="3rem"
+                            bgColor="red"
+                            color="white"
+                            onClick={handleResetGame}
+                            padding="3rem">Riprova</Button>
+                </Container>
+            )}
+
+            <Box position="relative" {...(isGameOver && {display: 'none'})}>
                 <canvas
                     style={{position: 'relative', userSelect: 'none', imageRendering: 'pixelated', touchAction: 'none'}}
                     ref={canvas}
                     height={CANVAS_HEIGHT}
                     width={CANVAS_WIDTH}/>
+
+                <Text position="absolute" top={0} right={0} fontSize="3.2rem" color="white">{points}</Text>
+
                 <Flex width="100%"
                       gap="4rem"
                       position="absolute"
@@ -427,8 +546,14 @@ function App() {
                     <Grid gap=".2rem" templateRows="repeat(2, 1fr)" templateColumns="repeat(3, 1fr)">
                         <GridItem gridColumn="2/3" gridRow="1/2">
                             <Button onMouseUp={() => updateSpeedY(0)}
-                                    onMouseDown={() => updateSpeedY(-player.current.velocityY)}
-                                    onTouchStart={() => updateSpeedY(-player.current.velocityY)}
+                                    onMouseDown={() => {
+                                        if (player.current.status === 'dead') return;
+                                        updateSpeedY(-player.current.velocityY)
+                                    }}
+                                    onTouchStart={() => {
+                                        if (player.current.status === 'dead') return;
+                                        updateSpeedY(-player.current.velocityY)
+                                    }}
                                     onTouchEnd={() => updateSpeedY(0)}
                                     variant="button">
                                 <ArrowUpIcon/>
@@ -437,18 +562,22 @@ function App() {
                         <GridItem gridRow="2/3">
                             <Button variant="button"
                                     onMouseUp={() => {
+                                        if (player.current.status === 'dead') return;
                                         updateSpeedX(0);
                                         updatePlayerStatus('idle');
                                     }}
                                     onMouseDown={() => {
+                                        if (player.current.status === 'dead') return;
                                         updatePlayerStatus('moving-left');
                                         updateSpeedX(-player.current.velocityX);
                                     }}
                                     onTouchEnd={() => {
+                                        if (player.current.status === 'dead') return;
                                         updateSpeedX(0);
                                         updatePlayerStatus('idle');
                                     }}
                                     onTouchStart={() => {
+                                        if (player.current.status === 'dead') return;
                                         updatePlayerStatus('moving-left');
                                         updateSpeedX(-player.current.velocityX);
                                     }}
@@ -459,9 +588,15 @@ function App() {
                         <GridItem gridRow="2/3">
                             <Button variant="button"
                                     onMouseUp={() => updateSpeedY(0)}
-                                    onMouseDown={() => updateSpeedY(player.current.velocityY)}
+                                    onMouseDown={() => {
+                                        if (player.current.status === 'dead') return;
+                                        updateSpeedY(player.current.velocityY)
+                                    }}
                                     onTouchEnd={() => updateSpeedY(0)}
-                                    onTouchStart={() => updateSpeedY(player.current.velocityY)}
+                                    onTouchStart={() => {
+                                        if (player.current.status === 'dead') return;
+                                        updateSpeedY(player.current.velocityY)
+                                    }}
                             >
                                 <ArrowDownIcon/>
                             </Button>
@@ -469,18 +604,22 @@ function App() {
                         <GridItem gridRow="2/3">
                             <Button variant="button"
                                     onMouseUp={() => {
+                                        if (player.current.status === 'dead') return;
                                         updateSpeedX(0)
                                         updatePlayerStatus('idle');
                                     }}
                                     onMouseDown={() => {
+                                        if (player.current.status === 'dead') return;
                                         updateSpeedX(player.current.velocityX);
                                         updatePlayerStatus('moving-right');
                                     }}
                                     onTouchEnd={() => {
+                                        if (player.current.status === 'dead') return;
                                         updateSpeedX(0)
                                         updatePlayerStatus('idle');
                                     }}
                                     onTouchStart={() => {
+                                        if (player.current.status === 'dead') return;
                                         updateSpeedX(player.current.velocityX);
                                         updatePlayerStatus('moving-right');
                                     }}
@@ -497,13 +636,15 @@ function App() {
             </Box>
 
             <VisuallyHidden>
-                <img ref={shipsImageRef} src={ships} alt=""/>
+                <img ref={shipRef} src={ship} alt=""/>
+                <img ref={shipMovingLeftRef} src={shipMovingLeft} alt=""/>
+                <img ref={shipMovingRightRef} src={shipMovingRight} alt=""/>
                 <img ref={projectilesImageRef} src={projectiles} alt=""/>
                 <img ref={backgroundsImageRef} src={backgrounds} alt=""/>
                 <img ref={meteorImageRef} src={meteor} alt=""/>
-                <img ref={explosion1Ref} src={explosion1} alt=""/>
-                <img ref={explosion2Ref} src={explosion2} alt=""/>
-                <img ref={explosion3Ref} src={explosion3} alt=""/>
+                <img ref={explosionFrame1Ref} src={explosion1} alt=""/>
+                <img ref={explosionFrame2Ref} src={explosion2} alt=""/>
+                <img ref={explosionFrame3Ref} src={explosion3} alt=""/>
 
                 <footer>
                     <p>Sviluppato da Alessio Sferro</p>
@@ -542,6 +683,32 @@ type Explosion = {
     y: number;
     size: number;
     animationTime: number;
+}
+
+
+const CANVAS_WIDTH = 350;
+const CANVAS_HEIGHT = 600;
+
+const PLAYER_SIZE = 48;
+const ANIMATION_FRAME_TIME = 8;
+const PLAYER_HP_SIZE = 24;
+
+const INITIAL_PLAYER_CONFIG = {
+    velocityX: 4,
+    velocityY: 3,
+    speedX: 0,
+    speedY: 0,
+    hp: 3,
+    status: 'idle',
+    x: 150,
+    y: 400,
+    keysPressed: new Set<string>([])
+}
+
+const INITIAL_GAME_CONFIG = {
+    backgroundY: 0,
+    backgroundVelocityY: .3,
+    isGameOver: false
 }
 
 export default App

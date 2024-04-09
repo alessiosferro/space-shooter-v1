@@ -1,5 +1,13 @@
-
+@font-face {
+    font-family: "Pixeboy";
+    src: url("fonts/Pixeboy.ttf") format("truetype");
+    font-weight: 400;
+}
 
 html {
-  font-size: 62.5%;
+    font-size: 62.5%;
+}
+
+body {
+    font-family: "Pixeboy", sans-serif !important;
 }

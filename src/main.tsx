@@ -20,7 +20,7 @@ const theme = extendTheme({
                 }
             }
         })
-    }
+    },
 } satisfies ThemeOverride);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
