@@ -210,6 +210,13 @@ function App() {
                         size: PLAYER_SIZE,
                         animationTime: 0,
                         type: 'player'
+                    },
+                    {
+                        x: asteroid.x,
+                        y: asteroid.y,
+                        size: asteroid.size,
+                        animationTime: 0,
+                        type: 'asteroid'
                     }
                 ];
 
