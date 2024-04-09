@@ -105,7 +105,7 @@ function App() {
     function spawnAsteroids() {
         asteroidIntervalId.current = setInterval(() => {
             updateAsteroids();
-        }, 800);
+        }, 400);
     }
 
     function handleResetGame() {
@@ -121,8 +121,8 @@ function App() {
     }
 
     function updateAsteroids() {
-        const velocityY = Math.random() + .3;
-        const velocityX = (Math.random() / 5) * (Math.round(Math.random()) === 0 ? 1 : -1);
+        const velocityY = 1;
+        const velocityX = (Math.random() / 4) * (Math.round(Math.random()) === 0 ? 1 : -1);
         const size = Math.round(Math.random() * 100) + 100;
         const x = Math.round(Math.random() * (CANVAS_WIDTH - size))
 
@@ -769,7 +769,7 @@ const CANVAS_WIDTH = 350;
 const CANVAS_HEIGHT = 600;
 
 const PLAYER_SIZE = 48;
-const ANIMATION_FRAME_TIME = 10;
+const ANIMATION_FRAME_TIME = 5;
 const PLAYER_HP_SIZE = 24;
 
 const INITIAL_PLAYER_CONFIG = {
