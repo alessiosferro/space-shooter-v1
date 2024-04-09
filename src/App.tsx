@@ -7,33 +7,53 @@ import shipMovingLeft from './assets/ship-moving-left.png';
 import shipMovingRight from './assets/ship-moving-right.png';
 import projectiles from './assets/projectiles.png';
 import backgrounds from './assets/backgrounds.png';
-import meteor from './assets/meteor.png';
-import explosion1 from './assets/explosion1.png';
-import explosion2 from './assets/explosion2.png';
-import explosion3 from './assets/explosion3.png';
+import asteroid from './assets/asteroid.png';
+
+import shipExplosion1 from './assets/explosion1.png';
+import shipExplosion2 from './assets/explosion2.png';
+import shipExplosion3 from './assets/explosion3.png';
+
+import explosion1 from './assets/explosionFrame1.png';
+import explosion2 from './assets/explosionFrame2.png';
+import explosion3 from './assets/explosionFrame3.png';
+import explosion4 from './assets/explosionFrame4.png';
+import explosion5 from './assets/explosionFrame5.png';
+import explosion6 from './assets/explosionFrame6.png';
+import explosion7 from './assets/explosionFrame7.png';
+
 import {ArrowBackIcon, ArrowDownIcon, ArrowForwardIcon, ArrowUpIcon} from "@chakra-ui/icons";
 
 function App() {
     const canvas = useRef<HTMLCanvasElement | null>(null);
-    const meteorImageRef = useRef<HTMLImageElement | null>(null);
+    const asteroidImageRef = useRef<HTMLImageElement | null>(null);
     const projectilesImageRef = useRef<HTMLImageElement | null>(null);
-    const backgroundsImageRef = useRef<HTMLImageElement | null>(null)
-    const explosionFrame1Ref = useRef<HTMLImageElement | null>(null)
-    const explosionFrame2Ref = useRef<HTMLImageElement | null>(null)
-    const explosionFrame3Ref = useRef<HTMLImageElement | null>(null)
-    const shipRef = useRef<HTMLImageElement | null>(null)
-    const shipMovingLeftRef = useRef<HTMLImageElement | null>(null)
-    const shipMovingRightRef = useRef<HTMLImageElement | null>(null)
+    const backgroundsImageRef = useRef<HTMLImageElement | null>(null);
+
+    const explosionFrame1Ref = useRef<HTMLImageElement | null>(null);
+    const explosionFrame2Ref = useRef<HTMLImageElement | null>(null);
+    const explosionFrame3Ref = useRef<HTMLImageElement | null>(null);
+    const explosionFrame4Ref = useRef<HTMLImageElement | null>(null);
+    const explosionFrame5Ref = useRef<HTMLImageElement | null>(null);
+    const explosionFrame6Ref = useRef<HTMLImageElement | null>(null);
+    const explosionFrame7Ref = useRef<HTMLImageElement | null>(null);
+
+    const shipExplosionFrame1Ref = useRef<HTMLImageElement | null>(null);
+    const shipExplosionFrame2Ref = useRef<HTMLImageElement | null>(null);
+    const shipExplosionFrame3Ref = useRef<HTMLImageElement | null>(null);
+
+    const shipRef = useRef<HTMLImageElement | null>(null);
+    const shipMovingLeftRef = useRef<HTMLImageElement | null>(null);
+    const shipMovingRightRef = useRef<HTMLImageElement | null>(null);
     const respawnInvulnerabilityTimer = useRef<number>(0);
     const animationFrameId = useRef<number | null>(null);
     const fireBulletTimeoutId = useRef<number | null>(null);
-    const meteorIntervalId = useRef<number | null>(null);
+    const asteroidIntervalId = useRef<number | null>(null);
     const [isGameOver, setIsGameOver] = useState(false);
     const [points, setPoints] = useState(0);
     const player = useRef(INITIAL_PLAYER_CONFIG);
     const game = useRef(INITIAL_GAME_CONFIG);
     const bullets = useRef<Bullet[]>([]);
-    const meteors = useRef<Meteor[]>([]);
+    const asteroids = useRef<Asteroid[]>([]);
     const explosions = useRef<Explosion[]>([]);
 
     function fireBullet() {
@@ -77,14 +97,14 @@ function App() {
 
     function handleVisibilityChange() {
         if (document.visibilityState === 'visible') {
-            clearInterval(meteorIntervalId.current!);
-            spawnMeteors();
+            clearInterval(asteroidIntervalId.current!);
+            spawnAsteroids();
         }
     }
 
-    function spawnMeteors() {
-        meteorIntervalId.current = setInterval(() => {
-            updateMeteors();
+    function spawnAsteroids() {
+        asteroidIntervalId.current = setInterval(() => {
+            updateAsteroids();
         }, 800);
     }
 
@@ -94,20 +114,20 @@ function App() {
 
         player.current = {...INITIAL_PLAYER_CONFIG};
         game.current = {...INITIAL_GAME_CONFIG};
-        meteors.current = [];
+        asteroids.current = [];
         bullets.current = [];
         explosions.current = [];
         respawnInvulnerabilityTimer.current = 0;
     }
 
-    function updateMeteors() {
-        const velocityY = Math.random() + .2;
+    function updateAsteroids() {
+        const velocityY = Math.random() + .3;
         const velocityX = (Math.random() / 5) * (Math.round(Math.random()) === 0 ? 1 : -1);
-        const size = Math.round((Math.random() * 40) + 20);
+        const size = Math.round(Math.random() * 100) + 100;
         const x = Math.round(Math.random() * (CANVAS_WIDTH - size))
 
-        meteors.current = [
-            ...meteors.current,
+        asteroids.current = [
+            ...asteroids.current,
             {
                 x,
                 y: -size,
@@ -155,17 +175,17 @@ function App() {
             }
         }
 
-        function detectMeteorPlayerCollision() {
+        function detectAsteroidPlayerCollision() {
             if (respawnInvulnerabilityTimer.current > 0) return;
 
             const {x, y} = player.current;
 
-            for (const meteor of meteors.current) {
+            for (const asteroid of asteroids.current) {
                 if (
-                    (meteor.x + meteor.size * .6 >= x && meteor.x <= x + PLAYER_SIZE) &&
-                    (meteor.y + meteor.size * .6 >= y && meteor.y <= y + PLAYER_SIZE)
+                    (asteroid.x + asteroid.size * .6 >= x && asteroid.x <= x + PLAYER_SIZE) &&
+                    (asteroid.y + asteroid.size * .6 >= y && asteroid.y <= y + PLAYER_SIZE)
                 ) {
-                    return meteor;
+                    return asteroid;
                 }
             }
 
@@ -175,12 +195,12 @@ function App() {
         function updatePlayerPosition() {
             if (player.current.status === 'dead') return;
 
-            const meteor = detectMeteorPlayerCollision();
+            const asteroid = detectAsteroidPlayerCollision();
 
             const {x, speedX, y, hp, speedY} = player.current;
 
-            if (meteor) {
-                meteors.current = meteors.current.filter(m => m !== meteor);
+            if (asteroid) {
+                asteroids.current = asteroids.current.filter(m => m !== asteroid);
 
                 explosions.current = [
                     ...explosions.current,
@@ -188,19 +208,20 @@ function App() {
                         x,
                         y,
                         size: PLAYER_SIZE,
-                        animationTime: 0
+                        animationTime: 0,
+                        type: 'player'
                     }
                 ];
 
                 updatePlayerStatus('dead');
 
-                if (hp === 0) {
-                    setIsGameOver(true);
-                    game.current.isGameOver = true;
-                    return;
-                }
-
                 setTimeout(() => {
+                    if (hp === 0) {
+                        setIsGameOver(true);
+                        game.current.isGameOver = true;
+                        return;
+                    }
+
                     respawnInvulnerabilityTimer.current = 200;
 
                     player.current = {
@@ -225,14 +246,14 @@ function App() {
 
         }
 
-        function detectMeteorBulletCollision() {
+        function detectAsteroidBulletCollision() {
             for (const bullet of bullets.current) {
-                for (const meteor of meteors.current) {
+                for (const asteroid of asteroids.current) {
                     if (
-                        (bullet.x >= meteor.x && bullet.x <= meteor.x + meteor.size) &&
-                        (bullet.y >= meteor.y && bullet.y <= meteor.y + meteor.size)
+                        (bullet.x >= asteroid.x + asteroid.size * .3 && bullet.x <= asteroid.x + asteroid.size - asteroid.size * .3) &&
+                        (bullet.y >= asteroid.y + asteroid.size * .3 && bullet.y <= asteroid.y + asteroid.size - asteroid.size * .3)
                     ) {
-                        return {bullet, meteor};
+                        return {bullet, asteroid};
                     }
                 }
             }
@@ -241,16 +262,16 @@ function App() {
         }
 
         function updateBulletsPositions() {
-            const meteorExplosion = detectMeteorBulletCollision();
+            const asteroidExplosion = detectAsteroidBulletCollision();
 
-            if (meteorExplosion) {
-                const {bullet, meteor} = meteorExplosion;
-                const {x, y, size} = meteor;
+            if (asteroidExplosion) {
+                const {bullet, asteroid} = asteroidExplosion;
+                const {x, y, size} = asteroid;
 
                 setPoints((points) => points + Math.round(size));
 
                 bullets.current = bullets.current.filter(b => b !== bullet);
-                meteors.current = meteors.current.filter(m => m !== meteor);
+                asteroids.current = asteroids.current.filter(m => m !== asteroid);
 
                 explosions.current = [
                     ...explosions.current,
@@ -258,7 +279,8 @@ function App() {
                         x,
                         y,
                         size,
-                        animationTime: 0
+                        animationTime: 0,
+                        type: 'asteroid'
                     }
                 ];
             }
@@ -272,21 +294,21 @@ function App() {
                 }));
         }
 
-        function drawMeteors() {
-            for (const meteor of meteors.current) {
-                ctx.drawImage(meteorImageRef.current!, meteor.x, meteor.y, meteor.size, meteor.size);
+        function drawAsteroids() {
+            for (const asteroid of asteroids.current) {
+                ctx.drawImage(asteroidImageRef.current!, asteroid.x, asteroid.y, asteroid.size, asteroid.size);
             }
         }
 
-        function updateMeteorsPositions() {
-            meteors.current = meteors.current.filter(meteor =>
-                meteor.x > -meteor.size &&
-                meteor.x < CANVAS_WIDTH + meteor.size &&
-                meteor.y < CANVAS_HEIGHT
-            ).map(meteor => ({
-                ...meteor,
-                x: meteor.x + meteor.velocityX,
-                y: meteor.y + meteor.velocityY
+        function updateAsteroidsPositions() {
+            asteroids.current = asteroids.current.filter(asteroid =>
+                asteroid.x > -asteroid.size &&
+                asteroid.x < CANVAS_WIDTH + asteroid.size &&
+                asteroid.y < CANVAS_HEIGHT
+            ).map(asteroid => ({
+                ...asteroid,
+                x: asteroid.x + asteroid.velocityX,
+                y: asteroid.y + asteroid.velocityY
             }))
         }
 
@@ -303,28 +325,65 @@ function App() {
             });
         }
 
-        function getExplosionFrame(time: number) {
-            if (time < ANIMATION_FRAME_TIME) {
-                return explosionFrame1Ref.current!
+        function getExplosionFrame(type: Explosion['type'], time: number) {
+            switch (type) {
+                case "asteroid": {
+                    if (time < ANIMATION_FRAME_TIME) {
+                        return explosionFrame1Ref.current!
+                    }
+
+                    if (time < ANIMATION_FRAME_TIME * 2) {
+                        return explosionFrame2Ref.current!
+                    }
+
+                    if (time < ANIMATION_FRAME_TIME * 3) {
+                        return explosionFrame3Ref.current!
+                    }
+
+                    if (time < ANIMATION_FRAME_TIME * 4) {
+                        return explosionFrame4Ref.current!
+                    }
+
+                    if (time < ANIMATION_FRAME_TIME * 5) {
+                        return explosionFrame5Ref.current!
+                    }
+
+                    if (time < ANIMATION_FRAME_TIME * 5) {
+                        return explosionFrame6Ref.current!
+                    }
+
+                    return explosionFrame7Ref.current!
+                }
+
+                case "player": {
+                    if (time < ANIMATION_FRAME_TIME) {
+                        return shipExplosionFrame1Ref.current!
+                    }
+
+                    if (time < ANIMATION_FRAME_TIME * 2) {
+                        return shipExplosionFrame2Ref.current!
+                    }
+
+                    return shipExplosionFrame3Ref.current!
+                }
             }
 
-            if (time < ANIMATION_FRAME_TIME * 2) {
-                return explosionFrame2Ref.current!
-            }
-
-            return explosionFrame3Ref.current!
         }
 
         function drawExplosions() {
             for (const explosion of explosions.current) {
-                const {x, y, animationTime, size} = explosion;
+                const {x, y, animationTime, size, type} = explosion;
 
-                if (animationTime >= ANIMATION_FRAME_TIME * 3) {
+                const totalAnimationTime = type === 'player' ?
+                    ANIMATION_FRAME_TIME * 3 :
+                    ANIMATION_FRAME_TIME * 7;
+
+                if (animationTime >= totalAnimationTime) {
                     explosions.current = explosions.current.filter(e => e !== explosion);
                     return;
                 }
 
-                const imageElement = getExplosionFrame(animationTime);
+                const imageElement = getExplosionFrame(type, animationTime);
                 ctx.drawImage(imageElement, x, y, size, size);
                 updateExplosionAnimationTime(explosion);
             }
@@ -439,14 +498,14 @@ function App() {
 
                 if (player.current.status !== 'dead') {
                     updatePlayerPosition();
-                    updateBulletsPositions();
                 }
 
-                updateMeteorsPositions();
+                updateBulletsPositions();
+                updateAsteroidsPositions();
 
                 drawBackground();
                 drawBullets();
-                drawMeteors();
+                drawAsteroids();
                 drawExplosions();
                 drawPlayer();
                 drawHp();
@@ -455,7 +514,7 @@ function App() {
             animationFrameId.current = requestAnimationFrame(loop);
         }
 
-        spawnMeteors();
+        spawnAsteroids();
 
         loop();
 
@@ -463,7 +522,7 @@ function App() {
             removeEventListener('keydown', handleKeyDown);
             removeEventListener('keyup', handleKeyUp);
             cancelAnimationFrame(animationFrameId.current!);
-            clearInterval(meteorIntervalId.current!);
+            clearInterval(asteroidIntervalId.current!);
         }
     }
 
@@ -522,7 +581,9 @@ function App() {
                     <Button letterSpacing=".2rem"
                             fontSize="3rem"
                             bgColor="red"
+                            transition="background-color 200ms ease"
                             color="white"
+                            _hover={{bgColor: 'darkred'}}
                             onClick={handleResetGame}
                             padding="3rem">Riprova</Button>
                 </Container>
@@ -641,10 +702,20 @@ function App() {
                 <img ref={shipMovingRightRef} src={shipMovingRight} alt=""/>
                 <img ref={projectilesImageRef} src={projectiles} alt=""/>
                 <img ref={backgroundsImageRef} src={backgrounds} alt=""/>
-                <img ref={meteorImageRef} src={meteor} alt=""/>
+                <img ref={asteroidImageRef} src={asteroid} alt=""/>
+
                 <img ref={explosionFrame1Ref} src={explosion1} alt=""/>
                 <img ref={explosionFrame2Ref} src={explosion2} alt=""/>
                 <img ref={explosionFrame3Ref} src={explosion3} alt=""/>
+
+                <img ref={shipExplosionFrame1Ref} src={shipExplosion1} alt=""/>
+                <img ref={shipExplosionFrame2Ref} src={shipExplosion2} alt=""/>
+                <img ref={shipExplosionFrame3Ref} src={shipExplosion3} alt=""/>
+
+                <img ref={explosionFrame4Ref} src={explosion4} alt=""/>
+                <img ref={explosionFrame5Ref} src={explosion5} alt=""/>
+                <img ref={explosionFrame6Ref} src={explosion6} alt=""/>
+                <img ref={explosionFrame7Ref} src={explosion7} alt=""/>
 
                 <footer>
                     <p>Sviluppato da Alessio Sferro</p>
@@ -668,7 +739,7 @@ type Bullet = {
     velocityY: number;
 }
 
-type Meteor = {
+type Asteroid = {
     x: number;
     y: number;
 
@@ -683,6 +754,7 @@ type Explosion = {
     y: number;
     size: number;
     animationTime: number;
+    type: 'asteroid' | 'player';
 }
 
 
@@ -690,12 +762,12 @@ const CANVAS_WIDTH = 350;
 const CANVAS_HEIGHT = 600;
 
 const PLAYER_SIZE = 48;
-const ANIMATION_FRAME_TIME = 8;
+const ANIMATION_FRAME_TIME = 10;
 const PLAYER_HP_SIZE = 24;
 
 const INITIAL_PLAYER_CONFIG = {
-    velocityX: 4,
-    velocityY: 3,
+    velocityX: 6,
+    velocityY: 5,
     speedX: 0,
     speedY: 0,
     hp: 3,
