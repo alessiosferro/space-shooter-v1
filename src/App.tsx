@@ -6,6 +6,9 @@ import ships from './assets/ships.png';
 import projectiles from './assets/projectiles.png';
 import backgrounds from './assets/backgrounds.png';
 import meteor from './assets/meteor.png';
+import explosion1 from './assets/explosion1.png';
+import explosion2 from './assets/explosion2.png';
+import explosion3 from './assets/explosion3.png';
 
 import {ArrowBackIcon, ArrowDownIcon, ArrowForwardIcon, ArrowUpIcon} from "@chakra-ui/icons";
 
@@ -22,6 +25,9 @@ function App() {
     const shipsImageRef = useRef<HTMLImageElement | null>(null);
     const projectilesImageRef = useRef<HTMLImageElement | null>(null);
     const backgroundsImageRef = useRef<HTMLImageElement | null>(null)
+    const explosion1Ref = useRef<HTMLImageElement | null>(null)
+    const explosion2Ref = useRef<HTMLImageElement | null>(null)
+    const explosion3Ref = useRef<HTMLImageElement | null>(null)
 
     const animationFrameId = useRef<number | null>(null);
     const fireBulletTimeoutId = useRef<number | null>(null);
@@ -46,6 +52,8 @@ function App() {
     const bullets = useRef<Bullet[]>([]);
 
     const meteors = useRef<Meteor[]>([]);
+
+    const explosions = useRef<Explosion[]>([]);
 
     function fireBullet() {
         const {x, y} = player.current;
@@ -141,8 +149,42 @@ function App() {
             }
         }
 
+        function detectMeteorCollision() {
+            for (const bullet of bullets.current) {
+                for (const meteor of meteors.current) {
+                    if (
+                        (bullet.x >= meteor.x && bullet.x <= meteor.x + meteor.size) &&
+                        (bullet.y >= meteor.y && bullet.y <= meteor.y + meteor.size)
+                    ) {
+                        return {bullet, meteor};
+                    }
+                }
+            }
+
+            return null;
+        }
 
         function updateBulletsPositions() {
+            const meteorExplosion = detectMeteorCollision();
+
+            if (meteorExplosion) {
+                const {bullet, meteor} = meteorExplosion;
+                const {x, y, size} = meteor;
+
+                bullets.current = bullets.current.filter(b => b !== bullet);
+                meteors.current = meteors.current.filter(m => m !== meteor);
+
+                explosions.current = [
+                    ...explosions.current,
+                    {
+                        x,
+                        y,
+                        size,
+                        animationTime: 0
+                    }
+                ];
+            }
+
             bullets.current = bullets.current
                 .filter(bullet => bullet.y >= 0)
                 .map(bullet => ({
@@ -191,6 +233,41 @@ function App() {
         function drawBullets() {
             for (const bullet of bullets.current) {
                 ctx.drawImage(projectilesImageRef.current!, bullet.sx, bullet.sy, bullet.sw, bullet.sh, bullet.x, bullet.y, 8, 8);
+            }
+        }
+
+        function updateExplosionAnimationTime(explosion: Explosion) {
+            explosions.current = explosions.current.map(e => {
+                if (e !== explosion) return e;
+                return {...e, animationTime: e.animationTime + 1}
+            });
+        }
+
+        function getExplosionImage(time: number) {
+            if (time < 10) {
+                return explosion1Ref.current!
+            }
+
+            if (time < 20) {
+                return explosion2Ref.current!
+            }
+
+            return explosion3Ref.current!
+        }
+
+        function drawExplosions() {
+
+            for (const explosion of explosions.current) {
+                const {x, y, animationTime, size} = explosion;
+
+                if (animationTime >= 30) {
+                    explosions.current = explosions.current.filter(e => e !== explosion);
+                    return;
+                }
+
+                const imageElement = getExplosionImage(animationTime);
+                ctx.drawImage(imageElement, x, y, size, size);
+                updateExplosionAnimationTime(explosion);
             }
         }
 
@@ -290,10 +367,6 @@ function App() {
         function loop() {
             ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-            if (Math.floor(Math.random() * 100) === 50) {
-                spawnMeteor();
-            }
-
             updateBackgroundPosition();
             updatePlayerPosition();
             updateBulletsPositions();
@@ -303,16 +376,22 @@ function App() {
             drawPlayer();
             drawBullets();
             drawMeteors();
+            drawExplosions();
 
             animationFrameId.current = requestAnimationFrame(loop);
         }
 
         loop();
 
+        const intervalId = setInterval(() => {
+            spawnMeteor();
+        }, 800);
+
         return () => {
             removeEventListener('keydown', handleKeyDown);
             removeEventListener('keyup', handleKeyUp);
             cancelAnimationFrame(animationFrameId.current!);
+            clearInterval(intervalId);
         }
     }
 
@@ -419,12 +498,12 @@ function App() {
 
             <VisuallyHidden>
                 <img ref={shipsImageRef} src={ships} alt=""/>
-
                 <img ref={projectilesImageRef} src={projectiles} alt=""/>
-
                 <img ref={backgroundsImageRef} src={backgrounds} alt=""/>
-
                 <img ref={meteorImageRef} src={meteor} alt=""/>
+                <img ref={explosion1Ref} src={explosion1} alt=""/>
+                <img ref={explosion2Ref} src={explosion2} alt=""/>
+                <img ref={explosion3Ref} src={explosion3} alt=""/>
 
                 <footer>
                     <p>Sviluppato da Alessio Sferro</p>
@@ -456,6 +535,13 @@ type Meteor = {
     velocityY: number;
 
     size: number;
+}
+
+type Explosion = {
+    x: number;
+    y: number;
+    size: number;
+    animationTime: number;
 }
 
 export default App
