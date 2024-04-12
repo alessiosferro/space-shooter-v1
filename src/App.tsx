@@ -67,6 +67,8 @@ function App() {
     const asteroidSpawnTimer = useRef<number>(300);
     const enemySpawnTimer = useRef<number>(400);
 
+    const laserSoundRef = useRef<HTMLAudioElement | null>(null);
+
     const [currentLevelIndex] = useState<number>(0);
 
     const levels = useRef<{ spawns: string[] }[]>([
@@ -112,9 +114,8 @@ function App() {
 
 
     function playLaserSound() {
-        const audioElement = document.createElement('audio');
-        audioElement.src = laserSound;
-        audioElement.play();
+        laserSoundRef.current!.fastSeek(0);
+        laserSoundRef.current!.play();
     }
 
     function updateSpeedY(speedY: number) {
@@ -543,8 +544,23 @@ function App() {
             }
         }
 
-        function loop() {
-            if (!game.current.isGameOver) {
+        let startTime: number,
+            fpsInterval: number,
+            elapsedTime: number;
+
+        function firstFrame(timeStamp: number) {
+            fpsInterval = 1000 / FPS;
+            startTime = timeStamp;
+            loop(timeStamp);
+        }
+
+        function loop(timeStamp: number) {
+            const now = (timeStamp - startTime);
+            elapsedTime = now - startTime;
+
+            if (!game.current.isGameOver && elapsedTime > fpsInterval) {
+                startTime = now - (elapsedTime % fpsInterval);
+
                 spawnPhaseTimer.current--;
 
                 if (spawnPhaseTimer.current === 0) {
@@ -605,7 +621,7 @@ function App() {
             animationFrameId.current = requestAnimationFrame(loop);
         }
 
-        loop();
+        requestAnimationFrame(firstFrame);
 
         return () => {
             removeEventListener('keydown', handleKeyDown);
@@ -806,6 +822,10 @@ function App() {
                 <img ref={shipExplosionFrame3Ref} src={shipExplosion3} alt=""/>
                 <img ref={shipExplosionFrame4Ref} src={shipExplosion4} alt=""/>
 
+                <audio ref={laserSoundRef}>
+                    <source src={laserSound}/>
+                </audio>
+
                 <footer>
                     <p>Sviluppato da Alessio Sferro</p>
                 </footer>
@@ -863,6 +883,8 @@ const ANIMATION_FRAME_TIME = 5;
 const PLAYER_HP_SIZE = 24;
 
 const SPAWN_PHASE_TIME = 2000;
+
+const FPS = 144;
 
 const INITIAL_PLAYER_CONFIG = {
     velocityX: 6,
